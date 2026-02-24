@@ -214,6 +214,34 @@ def random_choice_or_none(songs: List[Song]) -> Optional[Song]:
     return random.choice(songs)
 
 
+def search_songs_multi(songs: List[Song], query: str) -> List[Song]:
+    """Return songs matching the query across title, artist, genre, and tags."""
+    if not query:
+        return songs
+
+    q = query.lower().strip()
+    filtered: List[Song] = []
+
+    for song in songs:
+        title = str(song.get("title", "")).lower()
+        artist = str(song.get("artist", "")).lower()
+        genre = str(song.get("genre", "")).lower()
+        tags = " ".join(str(t) for t in song.get("tags", [])).lower()
+        if q in title or q in artist or q in genre or q in tags:
+            filtered.append(song)
+
+    return filtered
+
+
+def genre_distribution(songs: List[Song]) -> Dict[str, int]:
+    """Return a count of songs per genre, sorted by count descending."""
+    counts: Dict[str, int] = {}
+    for song in songs:
+        genre = str(song.get("genre", "")) or "other"
+        counts[genre] = counts.get(genre, 0) + 1
+    return dict(sorted(counts.items(), key=lambda x: x[1], reverse=True))
+
+
 def history_summary(history: List[Song]) -> Dict[str, int]:
     """Return a summary of moods seen in the history."""
     counts = {"Hype": 0, "Chill": 0, "Mixed": 0}

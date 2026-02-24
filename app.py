@@ -5,11 +5,12 @@ from playlist_logic import (
     Song,
     build_playlists,
     compute_playlist_stats,
+    genre_distribution,
     history_summary,
     lucky_pick,
     merge_playlists,
     normalize_song,
-    search_songs,
+    search_songs_multi,
 )
 
 
@@ -21,6 +22,8 @@ def init_state():
         st.session_state.profile = dict(DEFAULT_PROFILE)
     if "history" not in st.session_state:
         st.session_state.history = []
+    if "recent_songs" not in st.session_state:
+        st.session_state.recent_songs = []
 
 
 def default_songs():
@@ -244,21 +247,23 @@ def add_song_sidebar():
     tags_text = st.sidebar.text_input("Tags (comma separated)")
 
     if st.sidebar.button("Add to playlist"):
-        raw_tags = [t.strip() for t in tags_text.split(",")]
-        tags = [t for t in raw_tags if t]
+        if not title or not artist:
+            st.sidebar.warning("Title and artist are required.")
+        else:
+            raw_tags = [t.strip() for t in tags_text.split(",")]
+            tags = [t for t in raw_tags if t]
 
-        song: Song = {
-            "title": title,
-            "artist": artist,
-            "genre": genre,
-            "energy": energy,
-            "tags": tags,
-        }
-        if title and artist:
+            song: Song = {
+                "title": title,
+                "artist": artist,
+                "genre": genre,
+                "energy": energy,
+                "tags": tags,
+            }
             normalized = normalize_song(song)
-            all_songs = st.session_state.songs[:]
-            all_songs.append(normalized)
-            st.session_state.songs = all_songs
+            st.session_state.songs.append(normalized)
+            st.session_state.recent_songs.append(normalized)
+            st.sidebar.success(f'Added "{title}"')
 
 
 def playlist_tabs(playlists):
@@ -282,8 +287,30 @@ def render_playlist(label, songs):
         st.write("No songs in this playlist.")
         return
 
-    query = st.text_input(f"Search {label} playlist by artist", key=f"search_{label}")
-    filtered = search_songs(songs, query, field="artist")
+    col_search, col_sort = st.columns([3, 2])
+    with col_search:
+        query = st.text_input(
+            "Search",
+            key=f"search_{label}",
+            placeholder="Title, artist, genre, or tag...",
+        )
+    with col_sort:
+        sort_by = st.selectbox(
+            "Sort by",
+            options=["Default", "Title", "Artist", "Energy ↑", "Energy ↓"],
+            key=f"sort_{label}",
+        )
+
+    filtered = search_songs_multi(songs, query)
+
+    if sort_by == "Title":
+        filtered = sorted(filtered, key=lambda s: str(s.get("title", "")).lower())
+    elif sort_by == "Artist":
+        filtered = sorted(filtered, key=lambda s: str(s.get("artist", "")).lower())
+    elif sort_by == "Energy ↑":
+        filtered = sorted(filtered, key=lambda s: s.get("energy", 0))
+    elif sort_by == "Energy ↓":
+        filtered = sorted(filtered, key=lambda s: s.get("energy", 0), reverse=True)
 
     if not filtered:
         st.write("No matching songs.")
@@ -294,7 +321,7 @@ def render_playlist(label, songs):
         tags = ", ".join(song.get("tags", []))
         st.write(
             f"- **{song['title']}** by {song['artist']} "
-            f"(genre {song['genre']}, energy {song['energy']}, mood {mood}) "
+            f"(genre: {song['genre']}, energy: {song['energy']}, mood: {mood}) "
             f"[{tags}]"
         )
 
@@ -344,11 +371,19 @@ def stats_section(playlists):
     top_artist = stats["top_artist"]
     if top_artist:
         st.write(
-            f"Most common artist: {top_artist} "
+            f"Most common artist: **{top_artist}** "
             f"({stats['top_artist_count']} songs)"
         )
     else:
         st.write("No top artist yet.")
+
+    all_songs = [s for songs in playlists.values() for s in songs]
+    if all_songs:
+        st.subheader("Genre distribution")
+        dist = genre_distribution(all_songs)
+        for g, count in dist.items():
+            bar = "█" * count
+            st.write(f"**{g}**: {bar} ({count})")
 
 
 def history_section():
@@ -371,11 +406,52 @@ def history_section():
             )
 
 
+def recently_added_section():
+    """Show songs added during this session, most recent first."""
+    recent = st.session_state.recent_songs
+    if not recent:
+        return
+
+    st.header("Recently added")
+    st.caption(f"{len(recent)} song(s) added this session")
+    for song in reversed(recent[-10:]):
+        tags = ", ".join(song.get("tags", []))
+        st.write(
+            f"- **{song['title']}** by {song['artist']} "
+            f"(genre: {song['genre']}, energy: {song['energy']}) [{tags}]"
+        )
+
+
+def delete_songs_sidebar():
+    """Render controls to remove songs from the library."""
+    all_songs = st.session_state.songs
+    if not all_songs:
+        return
+
+    st.sidebar.header("Delete songs")
+    to_delete = st.sidebar.multiselect(
+        "Select songs to remove",
+        options=list(range(len(all_songs))),
+        format_func=lambda i: f"{all_songs[i]['title']} — {all_songs[i]['artist']}",
+    )
+
+    if st.sidebar.button("Remove selected") and to_delete:
+        deleted_keys = {(all_songs[i]["title"], all_songs[i]["artist"]) for i in to_delete}
+        st.session_state.songs = [
+            s for i, s in enumerate(all_songs) if i not in to_delete
+        ]
+        st.session_state.recent_songs = [
+            s for s in st.session_state.recent_songs
+            if (s["title"], s["artist"]) not in deleted_keys
+        ]
+
+
 def clear_controls():
     """Render a small section for clearing data."""
     st.sidebar.header("Manage data")
     if st.sidebar.button("Reset songs to default"):
         st.session_state.songs = default_songs()
+        st.session_state.recent_songs = []
     if st.sidebar.button("Clear history"):
         st.session_state.history = []
 
@@ -392,6 +468,7 @@ def main():
     init_state()
     profile_sidebar()
     add_song_sidebar()
+    delete_songs_sidebar()
     clear_controls()
 
     profile = st.session_state.profile
@@ -401,6 +478,9 @@ def main():
     merged_playlists = merge_playlists(base_playlists, {})
 
     playlist_tabs(merged_playlists)
+    if st.session_state.recent_songs:
+        st.divider()
+        recently_added_section()
     st.divider()
     lucky_section(merged_playlists)
     st.divider()
