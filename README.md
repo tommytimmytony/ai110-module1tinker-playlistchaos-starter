@@ -111,3 +111,16 @@ If you finish early or want an extra challenge, try one of these:
 - Stay curious. The unpredictability is intentional and part of the experience.
 
 When you finish, Playlist Chaos will feel more predictable, and you will have taken your first steps into AI-assisted debugging.
+
+---
+
+## Instructor summary
+
+The main idea students needed to get was how data moves through a multi-step pipeline — you add a song, normalize it, classify it, group it into a playlist, and then display it. If something breaks in one step, it quietly messes up everything after it. The hardest bugs in this project aren’t the ones that crash the app — they’re the subtle ones. For example, search_songs returns nothing because the in check is flipped (value in query instead of query in value). And compute_playlist_stats uses len(hype) as the total, which makes the hype ratio always 1.0 — no error, just wrong math.
+
+Students will probably struggle most with the classify_song priority logic. The function technically “works” most of the time, but because favorite_genre is checked before the energy thresholds, it misclassifies certain low-energy songs if they happen to match the user’s favorite genre. That’s the kind of bug you only find if you test very intentionally.
+
+AI tools were actually pretty helpful for explaining what each function is supposed to do and for catching the flipped search condition once you look at the right lines. But they were a bit overconfident with classify_song, often suggesting big rewrites when all that was really needed was a simple reordering of conditions.
+
+If you want to guide a student toward finding the stats bug without just telling them the answer, you could ask something like:
+“What is total supposed to represent in compute_playlist_stats? If you had 10 songs and 3 were Hype, what should total be? Now compare that to what the code is actually setting it to.”
