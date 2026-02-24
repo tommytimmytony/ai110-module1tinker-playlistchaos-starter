@@ -196,24 +196,30 @@ def profile_sidebar():
 
     col1, col2 = st.sidebar.columns(2)
     with col1:
-        profile["hype_min_energy"] = st.sidebar.slider(
+        # Fix: was st.sidebar.slider inside a column context, which bypasses the
+        # column layout; use st.slider so it renders inside the column
+        profile["hype_min_energy"] = st.slider(
             "Hype min energy",
             min_value=1,
             max_value=10,
             value=int(profile.get("hype_min_energy", 7)),
         )
     with col2:
-        profile["chill_max_energy"] = st.sidebar.slider(
+        profile["chill_max_energy"] = st.slider(
             "Chill max energy",
             min_value=1,
             max_value=10,
             value=int(profile.get("chill_max_energy", 3)),
         )
 
+    genres = ["rock", "lofi", "pop", "jazz", "electronic", "ambient", "other"]
+    current_genre = profile.get("favorite_genre", "rock")
+    # Fix: was always index=0 (rock), ignoring the previously saved genre preference
+    current_index = genres.index(current_genre) if current_genre in genres else 0
     profile["favorite_genre"] = st.sidebar.selectbox(
         "Favorite genre",
-        options=["rock", "lofi", "pop", "jazz", "electronic", "ambient", "other"],
-        index=0,
+        options=genres,
+        index=current_index,
     )
 
     profile["include_mixed"] = st.sidebar.checkbox(

@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pip --version)",
+      "Bash(pip install -r \"d:/work/dsauth_mismatch_56851140/codepath/ai110-module1tinker-playlistchaos-starter/requirements.txt\")",
+      "Bash(python -c \"import shutil; total, used, free = shutil.disk_usage\\(''C:\\\\''\\); print\\(f''C: Free: {free/1e9:.1f} GB / Total: {total/1e9:.1f} GB''\\)\")",
+      "Bash(wmic logicaldisk get deviceid,freespace,size)",
+      "Bash(echo \"TEMP=$TEMP\")",
+      "Bash(echo \"TMP=$TMP\")",
+      "Bash(python -m streamlit --version)",
+      "Bash(pip install streamlit --user --no-cache-dir)"
+    ]
+  }
+}
